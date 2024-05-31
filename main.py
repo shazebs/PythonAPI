@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import random
 import mysql.connector
+import psycopg2.extras
 
 app = FastAPI()
 
@@ -89,6 +90,47 @@ async def get_istatus():
     cursor.close()
     connection.close()
     return {'data': data}
+
+@app.get('/postgres')
+async def example_postgres():
+    conn = psycopg2.connect(
+    host="localhost",
+    dbname="postgres",
+    user="postgres",
+    password="",
+    port=5432)
+
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute("""CREATE TABLE IF NOT EXISTS hosts (
+        host_id SERIAL PRIMARY KEY,
+        host_name VARCHAR(255),
+        host_key VARCHAR(50)
+    );
+    """)
+
+    cur.execute("""CREATE TABLE IF NOT EXISTS voters (
+        voter_id SERIAL PRIMARY KEY,
+        voter_name VARCHAR(255),
+        voter_key VARCHAR(50),
+        voter_host_id INT REFERENCES hosts(host_id)
+    );
+    """)
+
+    cur.execute("""SELECT * FROM voters ORDER BY voter_name ASC;""")
+
+    voters = []
+    for row in cur.fetchall():
+        voters.append({
+            "voter_name": row['voter_name'],
+            "voter_key": row['voter_key']
+        })
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"voters": voters}
 
 # WebSocket endpoint 
 @app.websocket('/ws')
